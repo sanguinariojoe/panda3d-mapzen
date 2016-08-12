@@ -24,6 +24,9 @@ from panda3d.core import SamplerState, Vec3
 from mapzen import Mapzen
 from movement_controller import MovementController
 
+from panda3d.core import loadPrcFileData 
+loadPrcFileData('', 'gl-debug #t')
+
 
 class ShaderTerrainDemo(ShowBase):
     def __init__(self):

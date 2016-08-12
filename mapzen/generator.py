@@ -24,6 +24,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 from skimage import io, exposure, img_as_uint, img_as_float
 from skimage.transform import resize
+from skimage.color import rgb2hsv, hsv2rgb
 import urllib2
 import StringIO
 from PIL import Image
@@ -62,7 +63,7 @@ class Generator(threading.Thread):
                                      "mapzen/rsc/terrain.frag.glsl")
         self.terrain.set_shader(terrain_shader)
         self.terrain.set_shader_input("camera", self.__camera)
-        grass_tex = self.__loader.loadTexture("mapzen/rsc/grass.png")
+        grass_tex = self.__loader.loadTexture("mapzen/rsc/landcover.png")
         grass_tex.set_minfilter(SamplerState.FT_linear_mipmap_linear)
         grass_tex.set_anisotropic_degree(16)
         self.terrain.set_texture(grass_tex)
@@ -89,8 +90,8 @@ class Generator(threading.Thread):
             # Check it is a valid image
             pic.verify()
             pic = Image.open(StringIO.StringIO(img))
-            img_folder = os.path.dirname(img_file)
             # Save it
+            img_folder = os.path.dirname(img_file)
             if not os.path.isdir(img_folder):
                 os.mkdir(img_folder)
             pic.save(img_file)
@@ -100,21 +101,66 @@ class Generator(threading.Thread):
         elevation = (pix[:,:,0] * 256 + pix[:,:,1] + pix[:,:,2] / 256) - 32768
         return elevation
 
+    def __landcover(self, tile):
+        img_file = "mapzen/rsc/cache/landcover_{}_{}_{}.png".format(
+            int(self.__zoom), int(tile[0]), int(tile[1]))
+        if os.path.isfile(img_file):
+            # The image is already cached
+            pic = Image.open(img_file)
+        else:
+            # Download the shaded landscape image
+            """
+            url = "http://a.b.tile.stamen.com/terrain-background/{}/{}/{}.png".format(
+                int(self.__zoom), int(tile[0]), int(tile[1]))
+            """
+            url = "http://a.tile.stamen.com/terrain-background/{}/{}/{}.png".format(
+                int(self.__zoom), int(tile[0]), int(tile[1]))
+            print(url)
+            img = urllib2.urlopen(url).read()
+            pic = Image.open(StringIO.StringIO(img))
+            # Check it is a valid image
+            pic.verify()
+            pic = Image.open(StringIO.StringIO(img))
+            # Convert to HSV and remove Saturation and Value (we are interested
+            # just in Hue)
+            hsv = pic.convert('HSV')
+            pix = np.array(hsv)
+            pix[:,:,1] = 50
+            pix[:,:,2] = 200
+            hsv = Image.fromarray(pix, mode='HSV')
+            pic = hsv.convert('RGB')
+            # Save it
+            img_folder = os.path.dirname(img_file)
+            if not os.path.isdir(img_folder):
+                os.mkdir(img_folder)
+            pic.save(img_file)
+        # Return an scipy image
+        return np.array(pic)
+
     def generate(self, tile):
-        # Generate the terrain elevation image
+        # Generate the terrain elevation and landcover image
         exy = None
+        cxy = None
         for tx in range(tile[0] - 1, tile[0] + 2):
             ey = None
+            cy = None
             for ty in range(tile[1] - 1, tile[1] + 2):
                 e = self.__elevation((tx, ty))
+                c = self.__landcover((tx, ty))
                 ey = e if ey is None else np.concatenate((ey, e), axis=0)
+                cy = c if cy is None else np.concatenate((cy, c), axis=0)
             exy = ey if exy is None else np.concatenate((exy, ey), axis=1)
-        # Smooth the image
+            cxy = cy if cxy is None else np.concatenate((cxy, cy), axis=1)
+        # Smooth the elevation
         exy = gaussian_filter(exy, 1)
         # Resize the image, which should be power of 2
         new_shape = (1 << (exy.shape[0] - 1).bit_length(),
                      1 << (exy.shape[1] - 1).bit_length())
         exy = resize(exy, new_shape)
+        new_shape = (1 << (cxy.shape[0] - 1).bit_length(),
+                     1 << (cxy.shape[1] - 1).bit_length())
+        cxy = Image.fromarray(cxy, mode='RGB')
+        cxy.resize(new_shape, Image.ANTIALIAS)
 
         update_mutex.acquire()
         self.__z0 = np.min(exy)
@@ -126,6 +172,7 @@ class Generator(threading.Thread):
         # im = 0.5 * (1.0 + exposure.rescale_intensity(exy, out_range='float'))
         im = img_as_uint(im)
         io.imsave('mapzen/rsc/elevation.png', im)
+        io.imsave('mapzen/rsc/landcover.png', cxy)
         self.__tile_back = np.copy(tile)
         # Mark as pending to become updated. The objects should not be updated
         # in a parallel thread, but 
