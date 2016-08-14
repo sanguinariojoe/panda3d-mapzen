@@ -38,7 +38,7 @@ vec3 get_terrain_normal() {
 
 
 void main() {
-  vec3 diffuse = texture(p3d_Texture0, terrain_uv * 16.0).xyz;
+  vec3 diffuse = texture(p3d_Texture0, terrain_uv).xyz;
   vec3 normal = get_terrain_normal();
 
   // Add some fake lighting - you usually want to use your own lighting code here

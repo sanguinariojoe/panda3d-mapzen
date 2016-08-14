@@ -63,10 +63,10 @@ class Generator(threading.Thread):
                                      "mapzen/rsc/terrain.frag.glsl")
         self.terrain.set_shader(terrain_shader)
         self.terrain.set_shader_input("camera", self.__camera)
-        grass_tex = self.__loader.loadTexture("mapzen/rsc/landcover.png")
-        grass_tex.set_minfilter(SamplerState.FT_linear_mipmap_linear)
-        grass_tex.set_anisotropic_degree(16)
-        self.terrain.set_texture(grass_tex)
+        self.landcover_tex = self.__loader.loadTexture("mapzen/rsc/landcover.png")
+        # self.landcover_tex.set_minfilter(SamplerState.FT_linear_mipmap_linear)
+        # self.landcover_tex.set_anisotropic_degree(16)
+        self.terrain.set_texture(self.landcover_tex)
 
         self.mercator = GlobalMercator()
         self.__orig = np.zeros(3, dtype=np.float)
@@ -125,8 +125,8 @@ class Generator(threading.Thread):
             # just in Hue)
             hsv = pic.convert('HSV')
             pix = np.array(hsv)
-            pix[:,:,1] = 50
-            pix[:,:,2] = 200
+            pix[:,:,1] = 100
+            pix[:,:,2] = 165
             hsv = Image.fromarray(pix, mode='HSV')
             pic = hsv.convert('RGB')
             # Save it
@@ -198,6 +198,7 @@ class Generator(threading.Thread):
         xmax -= self.__orig[0]
         ymax -= self.__orig[1]
         self.terrain_node.heightfield.reload()
+        self.landcover_tex.reload()
         self.terrain_node.generate()
         self.terrain.set_scale(xmax - xmin, ymax - ymin, self.__zscale)
         self.terrain.set_pos(xmin, -ymax, self.__z0 - self.__orig[2])
