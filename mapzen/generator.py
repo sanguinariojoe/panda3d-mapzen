@@ -22,7 +22,7 @@ import os.path
 import threading
 import numpy as np
 from scipy.ndimage import gaussian_filter
-from skimage import io, exposure, img_as_uint, img_as_float
+from skimage import io, img_as_uint
 from skimage.transform import resize
 from skimage.color import rgb2hsv, hsv2rgb
 import urllib2
@@ -32,7 +32,7 @@ from .globalmaptiles import GlobalMercator
 from panda3d.core import ShaderTerrainMesh, Shader, SamplerState
 
 
-MIN_ZSCALE = 250.0
+MIN_ZSCALE = 125.0
 update_mutex = threading.Lock()
 
 
@@ -151,27 +151,27 @@ class Generator(threading.Thread):
                 cy = c if cy is None else np.concatenate((cy, c), axis=0)
             exy = ey if exy is None else np.concatenate((exy, ey), axis=1)
             cxy = cy if cxy is None else np.concatenate((cxy, cy), axis=1)
-        # Smooth the elevation
-        exy = gaussian_filter(exy, 1)
-        # Resize the image, which should be power of 2
+        update_mutex.acquire()
+        self.__z0 = np.min(exy)
+        self.__zscale = max(MIN_ZSCALE, np.max(exy) - self.__z0)
+        exy = (exy - self.__z0) / self.__zscale
+        exy[exy < 0] = 0
+        exy[exy > 1] = 1
+        # Resize the images, which should be power of 2
         new_shape = (1 << (exy.shape[0] - 1).bit_length(),
                      1 << (exy.shape[1] - 1).bit_length())
         exy = resize(exy, new_shape)
         new_shape = (1 << (cxy.shape[0] - 1).bit_length(),
                      1 << (cxy.shape[1] - 1).bit_length())
         cxy = Image.fromarray(cxy, mode='RGB')
-        cxy.resize(new_shape, Image.ANTIALIAS)
-
-        update_mutex.acquire()
-        self.__z0 = np.min(exy)
-        self.__zscale = max(MIN_ZSCALE, np.max(exy) - self.__z0)
+        cxy = cxy.resize(new_shape, Image.ANTIALIAS)
+        # Smooth the elevation
+        exy = gaussian_filter(exy, 1)
+        # Save the textures
         io.use_plugin('freeimage')
-        im = (exy - self.__z0) / self.__zscale
-        im[im < 0] = 0
-        im[im > 1] = 1
-        # im = 0.5 * (1.0 + exposure.rescale_intensity(exy, out_range='float'))
-        im = img_as_uint(im)
-        io.imsave('mapzen/rsc/elevation.png', im)
+        exy = img_as_uint(exy)
+        # exy = np.array(exy * 255, dtype=np.uint16)
+        io.imsave('mapzen/rsc/elevation.png', exy)
         io.imsave('mapzen/rsc/landcover.png', cxy)
         self.__tile_back = np.copy(tile)
         # Mark as pending to become updated. The objects should not be updated
@@ -198,7 +198,7 @@ class Generator(threading.Thread):
         xmax -= self.__orig[0]
         ymax -= self.__orig[1]
         self.terrain_node.heightfield.reload()
-        # self.terrain_node.generate()
+        self.terrain_node.generate()
         self.terrain.set_scale(xmax - xmin, ymax - ymin, self.__zscale)
         self.terrain.set_pos(xmin, -ymax, self.__z0 - self.__orig[2])
         self.__updated = True
