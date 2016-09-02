@@ -146,7 +146,11 @@ if __name__ == "__main__":
     # startx is the first x tile to download
     # endx is the last x tile to download    
     # starty is the first y tile to download
-    # endy is the last y tile to download    
+    # endy is the last y tile to download
+    #
+    # For instance, to download everything you may execute the following
+    # command (BASH):
+    # for zoom in {1..15}; do python mapzen/download.py $zoom & done
     if len(sys.argv) != 6 and len(sys.argv) != 2:
         raise ValueError('Wrong number of arguments')
         sys.exit()
