@@ -131,15 +131,11 @@ def main(tilesx, tilesy, zoom, force=False):
     """
     for tilex in tilesx:
         for tiley in tilesy:
-            """
             try:
                 elevation((tilex, tiley, zoom), force)
                 landcover((tilex, tiley, zoom), force)
             except:
                 print("Failed to download {}/{}/{}".format(tilex, tiley, zoom))
-            """
-            elevation((tilex, tiley, zoom), force)
-            landcover((tilex, tiley, zoom), force)
 
 
 if __name__ == "__main__":
