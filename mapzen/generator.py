@@ -29,6 +29,7 @@ import urllib2
 import StringIO
 from PIL import Image
 from .globalmaptiles import GlobalMercator
+from .download import elevation, landcover
 from panda3d.core import ShaderTerrainMesh, Shader, SamplerState
 
 
@@ -74,69 +75,6 @@ class Generator(threading.Thread):
                                   verbose=verbose)
         return
 
-    def __elevation(self, tile):
-        img_file = "mapzen/rsc/cache/elevation_{}_{}_{}.png".format(
-            int(self.__zoom), int(tile[0]), int(tile[1]))
-        if os.path.isfile(img_file):
-            # The image is already cached
-            pic = Image.open(img_file)
-        else:
-            # Download the terrarium image
-            url = "https://terrain-preview.mapzen.com/terrarium/{}/{}/{}.png".format(
-                int(self.__zoom), int(tile[0]), int(tile[1]))
-            print(url)
-            img = urllib2.urlopen(url).read()
-            pic = Image.open(StringIO.StringIO(img))
-            # Check it is a valid image
-            pic.verify()
-            pic = Image.open(StringIO.StringIO(img))
-            # Save it
-            img_folder = os.path.dirname(img_file)
-            if not os.path.isdir(img_folder):
-                os.mkdir(img_folder)
-            pic.save(img_file)
-        # Decode the elevation
-        pix = np.array(pic.getdata(), dtype=np.float).reshape(
-            pic.size[0], pic.size[1], 3)
-        elevation = (pix[:,:,0] * 256 + pix[:,:,1] + pix[:,:,2] / 256) - 32768
-        return elevation
-
-    def __landcover(self, tile):
-        img_file = "mapzen/rsc/cache/landcover_{}_{}_{}.png".format(
-            int(self.__zoom), int(tile[0]), int(tile[1]))
-        if os.path.isfile(img_file):
-            # The image is already cached
-            pic = Image.open(img_file)
-        else:
-            # Download the shaded landscape image
-            """
-            url = "http://a.b.tile.stamen.com/terrain-background/{}/{}/{}.png".format(
-                int(self.__zoom), int(tile[0]), int(tile[1]))
-            """
-            url = "http://a.tile.stamen.com/terrain-background/{}/{}/{}.png".format(
-                int(self.__zoom), int(tile[0]), int(tile[1]))
-            print(url)
-            img = urllib2.urlopen(url).read()
-            pic = Image.open(StringIO.StringIO(img))
-            # Check it is a valid image
-            pic.verify()
-            pic = Image.open(StringIO.StringIO(img))
-            # Convert to HSV and remove Saturation and Value (we are interested
-            # just in Hue)
-            hsv = pic.convert('HSV')
-            pix = np.array(hsv)
-            pix[:,:,1] = 100
-            pix[:,:,2] = 165
-            hsv = Image.fromarray(pix, mode='HSV')
-            pic = hsv.convert('RGB')
-            # Save it
-            img_folder = os.path.dirname(img_file)
-            if not os.path.isdir(img_folder):
-                os.mkdir(img_folder)
-            pic.save(img_file)
-        # Return an scipy image
-        return np.array(pic)
-
     def generate(self, tile):
         # Generate the terrain elevation and landcover image
         exy = None
@@ -145,8 +83,8 @@ class Generator(threading.Thread):
             ey = None
             cy = None
             for ty in range(tile[1] - 1, tile[1] + 2):
-                e = self.__elevation((tx, ty))
-                c = self.__landcover((tx, ty))
+                e = elevation((tx, ty, self.__zoom))
+                c = landcover((tx, ty, self.__zoom))
                 ey = e if ey is None else np.concatenate((ey, e), axis=0)
                 cy = c if cy is None else np.concatenate((cy, c), axis=0)
             exy = ey if exy is None else np.concatenate((exy, ey), axis=1)
