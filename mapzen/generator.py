@@ -21,7 +21,7 @@ import time
 import os.path
 import threading
 import numpy as np
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, gaussian_gradient_magnitude
 from skimage import io, img_as_uint
 from skimage.transform import resize
 from skimage.color import rgb2hsv, hsv2rgb
@@ -34,6 +34,8 @@ from panda3d.core import ShaderTerrainMesh, Shader, SamplerState
 
 
 MIN_ZSCALE = 125.0
+ROCK_COLOR = np.asarray([100, 60, 30], dtype=np.int16)
+ROCK_STEEPNESS = np.tan(np.radians(30.0))
 update_mutex = threading.Lock()
 
 
@@ -75,6 +77,33 @@ class Generator(threading.Thread):
                                   verbose=verbose)
         return
 
+    def set_rocks_in_grad(self, elevation, landcover):
+        """ Modify the land cover to create rocks in the large gradient pixels
+        (large steepness)
+
+        Position arguments:
+        elevation -- Elevation image
+        landcover -- Landcover to become edited
+
+        Returned value:
+        Edited landcover
+        """
+        # Compute the steepness of each pixel
+        grad = gaussian_gradient_magnitude(elevation, 1.0)
+        grad /= self.mercator.Resolution(self.__zoom)
+        # Get the mask of rock (with a smooth transition)
+        mask = (grad >= ROCK_STEEPNESS).astype(np.float)
+        mask = gaussian_filter(mask, 3.0)
+        # Blend the images
+        dtype = landcover.dtype
+        rock_image = np.zeros(landcover.shape, dtype=dtype)
+        rock_image[:,:] = ROCK_COLOR
+        for i in range(3):
+            rock_image[:,:,i] = (mask * rock_image[:,:,i]).astype(dtype)
+            landcover[:,:,i] = ((1.0 - mask) * landcover[:,:,i]).astype(dtype)
+        landcover += rock_image
+        return landcover
+
     def generate(self, tile):
         # Generate the terrain elevation and landcover image
         exy = None
@@ -89,6 +118,7 @@ class Generator(threading.Thread):
                 cy = c if cy is None else np.concatenate((cy, c), axis=0)
             exy = ey if exy is None else np.concatenate((exy, ey), axis=1)
             cxy = cy if cxy is None else np.concatenate((cxy, cy), axis=1)
+        cxy = self.set_rocks_in_grad(exy, cxy)
         update_mutex.acquire()
         self.__z0 = np.min(exy)
         self.__zscale = max(MIN_ZSCALE, np.max(exy) - self.__z0)
