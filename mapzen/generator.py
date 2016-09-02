@@ -104,7 +104,7 @@ class Generator(threading.Thread):
         cxy = Image.fromarray(cxy, mode='RGB')
         cxy = cxy.resize(new_shape, Image.ANTIALIAS)
         # Smooth the elevation
-        exy = gaussian_filter(exy, 1)
+        # exy = gaussian_filter(exy, 1)
         # Save the textures
         io.use_plugin('freeimage')
         exy = img_as_uint(exy)
