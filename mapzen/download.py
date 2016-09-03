@@ -22,6 +22,7 @@ import os.path
 from distutils.dir_util import mkpath
 import numpy as np
 from PIL import Image
+import json
 import urllib2
 import StringIO
 
@@ -30,6 +31,7 @@ CACHE_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)),
                           "rsc/cache/")
 ELEVATION_URL = "https://terrain-preview.mapzen.com/"
 LANDCOVER_URL = "http://a.tile.stamen.com/"
+VECTOR_URL = "http://vector.mapzen.com/"
 
 
 def elevation(tile, force=False):
@@ -57,7 +59,7 @@ def elevation(tile, force=False):
         print(url)
         img = urllib2.urlopen(url).read()
         pic = Image.open(StringIO.StringIO(img))
-        # Check it is a valid image
+        # Check that it is a valid image
         pic.verify()
         pic = Image.open(StringIO.StringIO(img))
         # Save it
@@ -97,7 +99,7 @@ def landcover(tile, force=False):
         print(url)
         img = urllib2.urlopen(url).read()
         pic = Image.open(StringIO.StringIO(img))
-        # Check it is a valid image
+        # Check that it is a valid image
         pic.verify()
         pic = Image.open(StringIO.StringIO(img))
         # Convert to HSV and remove Saturation and Value (we are interested
@@ -117,6 +119,41 @@ def landcover(tile, force=False):
     return np.array(pic)
 
 
+def vector_data(tile, force=False):
+    """ Download a tile Open Street Maps (OSM) vectorial data (road, buildings,
+    etc)
+
+    Position arguments:
+    tile -- Tuple of 3 values, tilex, tiley and zoom (<= 15)
+
+    Keyword arguments:
+    force -- True if the JSON data file is already available in the cache
+
+    Returned value:
+    JSON data
+    """
+    json_file = CACHE_PATH + "osm/all/{}/{}/{}.json".format(
+        int(tile[2]), int(tile[0]), int(tile[1]))
+    if os.path.isfile(json_file) and not force:
+        # The data is already cached
+        with open(json_file, 'r') as data_file:    
+            data = json.load(data_file)
+    else:
+        # Download the shaded landscape image
+        url = VECTOR_URL + "osm/all/{}/{}/{}.json".format(
+            int(tile[2]), int(tile[0]), int(tile[1]))
+        print(url)
+        json_txt = urllib2.urlopen(url).read()
+        data = json.load(StringIO.StringIO(json_txt))
+        # Save it
+        json_folder = os.path.dirname(json_file)
+        if not os.path.isdir(json_folder):
+            mkpath(json_folder)
+        with open(json_file, 'w') as outfile:
+            json.dump(data, outfile)
+    return data
+
+
 def main(tilesx, tilesy, zoom, force=False):
     """ Download a set of tiles
 
@@ -134,6 +171,7 @@ def main(tilesx, tilesy, zoom, force=False):
             try:
                 elevation((tilex, tiley, zoom), force)
                 landcover((tilex, tiley, zoom), force)
+                vector_data((tilex, tiley, zoom), force)
             except:
                 print("Failed to download {}/{}/{}".format(tilex, tiley, zoom))
 
