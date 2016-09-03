@@ -119,10 +119,9 @@ class Generator(threading.Thread):
             exy = ey if exy is None else np.concatenate((exy, ey), axis=1)
             cxy = cy if cxy is None else np.concatenate((cxy, cy), axis=1)
         cxy = self.set_rocks_in_grad(exy, cxy)
-        update_mutex.acquire()
-        self.__z0 = np.min(exy)
-        self.__zscale = max(MIN_ZSCALE, np.max(exy) - self.__z0)
-        exy = (exy - self.__z0) / self.__zscale
+        z0 = np.min(exy)
+        zscale = max(MIN_ZSCALE, np.max(exy) - z0)
+        exy = (exy - z0) / zscale
         exy[exy < 0] = 0
         exy[exy > 1] = 1
         # Resize the images, which should be power of 2
@@ -133,12 +132,12 @@ class Generator(threading.Thread):
                      1 << (cxy.shape[1] - 1).bit_length())
         cxy = Image.fromarray(cxy, mode='RGB')
         cxy = cxy.resize(new_shape, Image.ANTIALIAS)
-        # Smooth the elevation
-        # exy = gaussian_filter(exy, 1)
         # Save the textures
         io.use_plugin('freeimage')
         exy = img_as_uint(exy)
-        # exy = np.array(exy * 255, dtype=np.uint16)
+        update_mutex.acquire()
+        self.__z0 = z0
+        self.__zscale = zscale
         io.imsave('mapzen/rsc/elevation.png', exy)
         io.imsave('mapzen/rsc/landcover.png', cxy)
         self.__tile_back = np.copy(tile)
