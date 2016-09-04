@@ -106,8 +106,8 @@ def landcover(tile, force=False):
         # just in Hue)
         hsv = pic.convert('HSV')
         pix = np.array(hsv)
-        pix[:,:,1] = 100
-        pix[:,:,2] = 165
+        # pix[:,:,1] = 100
+        pix[:,:,2] = 255
         hsv = Image.fromarray(pix, mode='HSV')
         pic = hsv.convert('RGB')
         # Save it
@@ -136,7 +136,7 @@ def vector_data(tile, force=False):
         int(tile[2]), int(tile[0]), int(tile[1]))
     if os.path.isfile(json_file) and not force:
         # The data is already cached
-        with open(json_file, 'r') as data_file:    
+        with open(json_file, 'r') as data_file:
             data = json.load(data_file)
     else:
         # Download the shaded landscape image
