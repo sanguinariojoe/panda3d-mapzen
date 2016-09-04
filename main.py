@@ -44,11 +44,19 @@ class ShaderTerrainDemo(ShowBase):
 
         # Increase camera FOV as well as the far plane
         self.camLens.set_fov(90)
-        self.camLens.set_near_far(0.1, 3000)
+        self.camLens.set_near_far(0.1, 10000)
 
         # Start the Mapzen tool
+        """
         self.mzen = Mapzen(self.camera, self.loader, self.render, taskMgr,
                            3095, 6430, zoom=14)
+        self.mzen = Mapzen(self.camera, self.loader, self.render, taskMgr,
+                           773, 1607, zoom=12)
+        self.mzen = Mapzen(self.camera, self.loader, self.render, taskMgr,
+                           2149, 1445, zoom=12)
+        """
+        self.mzen = Mapzen(self.camera, self.loader, self.render, taskMgr,
+                           773, 1607, zoom=12)
         base.finalExitCallbacks.append(self.exit)
         base.exitFunc = self.exit
 
@@ -89,8 +97,8 @@ class ShaderTerrainDemo(ShowBase):
         # Shortcut to view the wireframe mesh
         self.accept("f3", self.toggleWireframe)
 
-        """
         # Load a skybox - you can safely ignore this code
+        """
         skybox = self.loader.loadModel("models/skybox.bam")
         skybox.reparent_to(self.render)
         skybox.set_scale(20000)
@@ -106,6 +114,7 @@ class ShaderTerrainDemo(ShowBase):
         skybox_shader = Shader.load(Shader.SL_GLSL, "skybox.vert.glsl", "skybox.frag.glsl")
         skybox.set_shader(skybox_shader)
         """
+        self.setBackgroundColor(0.7, 0.7, 0.8)
 
         # Initialize movement controller
         self.controller = MovementController(self)

@@ -49,7 +49,7 @@ void main() {
 
   // Fake fog
   float dist = distance(vtx_pos, wspos_camera);
-  float fog_factor = smoothstep(0, 1, dist / 2000.0);
+  float fog_factor = smoothstep(0, 1, dist / 10000.0);
   shading = mix(shading, vec3(0.7, 0.7, 0.8), fog_factor * fog_factor);
 
   color = vec4(shading, 1.0);
