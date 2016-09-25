@@ -24,28 +24,34 @@ from .globalmaptiles import GlobalMercator
 
 class Mapzen():
     def __init__(self, camera, loader, root_node, taskMgr,
-                 tilex, tiley, zoom=15):
+                 tilex, tiley, zoom=14, buildings_zoom=14):
         """Mapzen scenario generator. This tool is loading tiles from mapzen,
         such that 9 tiles are ever shown around the camera position. When the
         camera is moved out of the tile center, the tool is loading a new set
         of tiles, and removing the old ones.
 
         Args:
-            camera:    Panda3D camera instance
-            loader:    Panda3D entities loader
-            root_node: Panda3D node where all the entities will be attached
-            taskMgr:   Panda3D task manager
-            tilex:     Position of the starting tilex (x = 0.0 global
-                       coordinate will be centered in this tile)
-            tiley:     Position of the starting tiley (y = 0.0 global
-                       coordinate will be centered in this tile)
-            zoom:      Zoom level, in range [1, 15]. The lower zoom the larger
-                       tiles are considered.
+            camera:         Panda3D camera instance
+            loader:         Panda3D entities loader
+            root_node:      Panda3D node where all the entities will be attached
+            taskMgr:        Panda3D task manager
+            tilex:          Position of the starting tilex (x = 0.0 global
+                            coordinate will be centered in this tile)
+            tiley:          Position of the starting tiley (y = 0.0 global
+                            coordinate will be centered in this tile)
+            zoom:           Zoom level, in range [1, 15]. The lower zoom the
+                            larger tiles are considered.
+            buildings_zoom: Zoom level, in range [1, 15]. Usually the buildings
+                            can be obtained just in higher levels. So a
+                            different zoom level can be selected, and the tool
+                            will automatically generate buildings along all the
+                            tiles required to cover the area required by zoom.
         """
         if not 1 <= zoom <= 15:
             raise ValueError('zoom should be an integer in range [1, 15]')
         self.camera = camera
         self.zoom = zoom
+        self.buildings_zoom = buildings_zoom
         self.generator = Generator(camera, loader, root_node, zoom=zoom)
         # Compute the origin for the generator
         self.mercator = GlobalMercator()
